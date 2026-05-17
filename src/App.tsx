@@ -71,7 +71,15 @@ export default function App() {
     setVideoData(null);
     try {
       const response = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
+      
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`API chưa được cấu hình đúng trên môi trường deploy (Lỗi: ${response.status}). Vui lòng kiểm tra lại backend.`);
+      }
+
       if (!response.ok) throw new Error(data.error || 'Không thể lấy thông tin video. Vui lòng kiểm tra lại link.');
       setVideoData(data);
     } catch (err: any) {
