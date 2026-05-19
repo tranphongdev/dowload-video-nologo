@@ -105,7 +105,7 @@ export default function App() {
             <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20 rotate-3">
               <Download className="text-white w-6 h-6 -rotate-3" />
             </div>
-            <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase italic">VortexDL</span>
+            <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase italic">SnapTik App</span>
           </div>
           <nav className="hidden md:flex items-center gap-10 text-xs font-bold uppercase tracking-widest text-slate-400">
             {/* <a href="#" className="hover:text-white transition-colors duration-300">Tính năng</a>
