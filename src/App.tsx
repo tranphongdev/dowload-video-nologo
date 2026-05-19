@@ -108,14 +108,14 @@ export default function App() {
             <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase italic">VortexDL</span>
           </div>
           <nav className="hidden md:flex items-center gap-10 text-xs font-bold uppercase tracking-widest text-slate-400">
-            <a href="#" className="hover:text-white transition-colors duration-300">Tính năng</a>
+            {/* <a href="#" className="hover:text-white transition-colors duration-300">Tính năng</a>
             <a href="#" className="hover:text-white transition-colors duration-300">Hướng dẫn</a>
-            <a href="#" className="hover:text-white transition-colors duration-300">API</a>
+            <a href="#" className="hover:text-white transition-colors duration-300">API</a> */}
           </nav>
           <div className="flex items-center gap-4">
-             <button className="px-5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-xs font-semibold tracking-wider transition-all active:scale-95">
+             {/* <button className="px-5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-xs font-semibold tracking-wider transition-all active:scale-95">
                 Đăng nhập
-             </button>
+             </button> */}
           </div>
         </div>
       </header>
