@@ -99,7 +99,7 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <header className="relative z-50 border-b border-white/5 backdrop-blur-xl sticky top-0">
+      <header className="relative z-50 border-white/5 backdrop-blur-xl sticky top-0">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20 rotate-3">
