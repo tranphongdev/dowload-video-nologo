@@ -14,10 +14,10 @@ import {
   AlertCircle, 
   Zap,
   Shield,
-  Smartphone,
   ChevronDown,
   Github,
-  Twitter
+  Twitter,
+  Trash2
 } from 'lucide-react';
 
 interface VideoData {
@@ -89,6 +89,12 @@ export default function App() {
     }
   };
 
+  const handleClear = () => {
+    setUrl('');
+    setError(null);
+    setVideoData(null);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-cyan-500 selection:text-white antialiased">
       {/* Background Atmosphere */}
@@ -105,17 +111,11 @@ export default function App() {
             <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20 rotate-3">
               <Download className="text-white w-6 h-6 -rotate-3" />
             </div>
-            <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 uppercase italic">SnapTik App</span>
+            <span className="text-lg font-bold tracking-tight from-white uppercase italic">SnapTik App</span>
           </div>
           <nav className="hidden md:flex items-center gap-10 text-xs font-bold uppercase tracking-widest text-slate-400">
-            {/* <a href="#" className="hover:text-white transition-colors duration-300">Tính năng</a>
-            <a href="#" className="hover:text-white transition-colors duration-300">Hướng dẫn</a>
-            <a href="#" className="hover:text-white transition-colors duration-300">API</a> */}
           </nav>
           <div className="flex items-center gap-4">
-             {/* <button className="px-5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-xs font-semibold tracking-wider transition-all active:scale-95">
-                Đăng nhập
-             </button> */}
           </div>
         </div>
       </header>
@@ -162,32 +162,26 @@ export default function App() {
                   placeholder="Dán link TikTok hoặc Douyin vào đây..." 
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 w-full bg-transparent border-none outline-none px-6 py-4 pr-12 text-lg placeholder:text-slate-500 font-medium focus:ring-0"
+                  className="flex-1 w-full bg-transparent border-none outline-none px-6 py-4 pr-12 text-lg placeholder:text-slate-500 font-medium focus:ring-0 truncate"
                 />
-                <AnimatePresence>
-                  {url && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      onClick={() => {
-                        setUrl('');
-                        setError(null);
-                      }}
-                      className="absolute right-4 p-2 hover:bg-white/10 rounded-full text-slate-500 hover:text-white transition-colors"
-                    >
-                      <AlertCircle className="w-5 h-5 rotate-45" />
-                    </motion.button>
-                  )}
-                </AnimatePresence>
+                
               </div>
               <button 
-                onClick={handleDownload}
+                onClick={videoData ? handleClear : handleDownload}
                 disabled={loading}
-                className="w-full md:w-auto bg-white hover:bg-cyan-50 disabled:bg-slate-700 text-slate-950 font-black uppercase tracking-wider py-4 px-10 rounded-[1.8rem] transition-all flex items-center justify-center gap-2 group/btn shadow-lg active:scale-95"
+                className={`w-full md:w-auto font-black uppercase tracking-wider py-4 px-10 rounded-[1.8rem] transition-all flex items-center justify-center gap-2 group/btn shadow-lg active:scale-95 ${
+                  videoData 
+                    ? "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 focus:ring-red-500/50" 
+                    : "bg-white hover:bg-cyan-50 disabled:bg-slate-700 text-slate-950"
+                }`}
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                ) : videoData ? (
+                  <>
+                    Xóa
+                    <Trash2 className="w-5 h-5 text-red-500 group-hover/btn:scale-110 transition-transform" />
+                  </>
                 ) : (
                   <>
                     Tải ngay
@@ -385,10 +379,7 @@ export default function App() {
 
                   <div className="mt-10 flex flex-col items-center gap-4">
                     <button 
-                      onClick={() => {
-                        setVideoData(null);
-                        setUrl('');
-                      }}
+                      onClick={handleClear}
                       className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/60 hover:text-cyan-400 transition-colors py-2 px-4 rounded-full border border-cyan-400/10 hover:border-cyan-400/30"
                     >
                       Tải video khác
