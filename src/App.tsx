@@ -51,30 +51,44 @@ export default function App() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [activeTab, setActiveTab] = useState<'download' | 'history'>('download');
 
-  // Load history from localStorage on component mount
+  // Load history from Express Server DB on component mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('download_history');
-      if (stored) {
-        setHistory(JSON.parse(stored));
+    const loadHistory = async () => {
+      try {
+        const response = await fetch('/api/history');
+        if (response.ok) {
+          const data = await response.json();
+          setHistory(data);
+        }
+      } catch (e) {
+        console.error('Error loading download history:', e);
       }
-    } catch (e) {
-      console.error('Error loading download history:', e);
-    }
+    };
+    loadHistory();
   }, []);
 
-  const addToHistory = (data: VideoData) => {
-    setHistory((prevHistory) => {
-      const filtered = prevHistory.filter((item) => item.id !== data.id);
-      const newItem: HistoryItem = {
-        ...data,
-        timestamp: Date.now(),
-        origin_url: data.origin_url || url
-      };
-      const updated = [newItem, ...filtered].slice(0, 24); // Limit to 24 items
-      localStorage.setItem('download_history', JSON.stringify(updated));
-      return updated;
-    });
+  const addToHistory = async (data: VideoData) => {
+    try {
+      const response = await fetch('/api/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          origin_url: data.origin_url || url
+        }),
+      });
+      if (response.ok) {
+        const savedItem = await response.json();
+        setHistory((prevHistory) => {
+          const filtered = prevHistory.filter((item) => item.id !== savedItem.id);
+          return [savedItem, ...filtered].slice(0, 24);
+        });
+      }
+    } catch (e) {
+      console.error('Error saving to history database:', e);
+    }
   };
 
   const handleSelectHistoryItem = (item: HistoryItem) => {
@@ -94,19 +108,32 @@ export default function App() {
     }, 100);
   };
 
-  const deleteHistoryItem = (e: React.MouseEvent, id: string) => {
+  const deleteHistoryItem = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setHistory((prevHistory) => {
-      const updated = prevHistory.filter((item) => item.id !== id);
-      localStorage.setItem('download_history', JSON.stringify(updated));
-      return updated;
-    });
+    try {
+      const response = await fetch(`/api/history/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setHistory((prevHistory) => prevHistory.filter((item) => item.id !== id));
+      }
+    } catch (e) {
+      console.error('Error deleting from history database:', e);
+    }
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử tải xuống không?')) {
-      setHistory([]);
-      localStorage.removeItem('download_history');
+      try {
+        const response = await fetch('/api/history', {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          setHistory([]);
+        }
+      } catch (e) {
+        console.error('Error clearing history database:', e);
+      }
     }
   };
 

@@ -6,8 +6,44 @@ import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 import cors from "cors";
+import fs from "fs/promises";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = path.join(__dirname, "data", "history.json");
+
+async function ensureDBExists() {
+  const dir = path.dirname(DB_PATH);
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    try {
+      await fs.access(DB_PATH);
+    } catch {
+      await fs.writeFile(DB_PATH, JSON.stringify([]));
+    }
+  } catch (err) {
+    console.error("Failed to ensure DB exists:", err);
+  }
+}
+
+async function readHistoryDB() {
+  await ensureDBExists();
+  try {
+    const data = await fs.readFile(DB_PATH, "utf-8");
+    return JSON.parse(data);
+  } catch (err) {
+    console.error("Failed to read DB:", err);
+    return [];
+  }
+}
+
+async function writeHistoryDB(data: any[]) {
+  await ensureDBExists();
+  try {
+    await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("Failed to write to DB:", err);
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -88,6 +124,59 @@ async function startServer() {
     } catch (error: any) {
       console.error("Proxy Error:", error.message);
       res.status(500).send("Failed to proxy download");
+    }
+  });
+
+  app.get("/api/history", async (req, res) => {
+    try {
+      const history = await readHistoryDB();
+      res.json(history);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to load history" });
+    }
+  });
+
+  app.post("/api/history", async (req, res) => {
+    try {
+      const item = req.body;
+      if (!item || !item.id) {
+        return res.status(400).json({ error: "Invalid video data" });
+      }
+
+      const history = await readHistoryDB();
+      const filtered = history.filter((x: any) => x.id !== item.id);
+      
+      const newItem = {
+        ...item,
+        timestamp: Date.now()
+      };
+
+      const updated = [newItem, ...filtered].slice(0, 24);
+      await writeHistoryDB(updated);
+      res.json(newItem);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to save to history" });
+    }
+  });
+
+  app.delete("/api/history", async (req, res) => {
+    try {
+      await writeHistoryDB([]);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to clear history" });
+    }
+  });
+
+  app.delete("/api/history/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const history = await readHistoryDB();
+      const updated = history.filter((x: any) => x.id !== id);
+      await writeHistoryDB(updated);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete history item" });
     }
   });
 
