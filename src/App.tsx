@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, ReactNode } from 'react';
+import React, { useState, ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Download, 
@@ -17,7 +17,9 @@ import {
   ChevronDown,
   Github,
   Twitter,
-  Trash2
+  Trash2,
+  Clock,
+  Eye
 } from 'lucide-react';
 
 interface VideoData {
@@ -28,11 +30,16 @@ interface VideoData {
   hd_play_url: string;
   music_url: string;
   images?: string[];
+  origin_url?: string;
   author: {
     nickname: string;
     avatar: string;
     unique_id: string;
   };
+}
+
+interface HistoryItem extends VideoData {
+  timestamp: number;
 }
 
 export default function App() {
@@ -41,6 +48,67 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<VideoData | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'download' | 'history'>('download');
+
+  // Load history from localStorage on component mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('download_history');
+      if (stored) {
+        setHistory(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Error loading download history:', e);
+    }
+  }, []);
+
+  const addToHistory = (data: VideoData) => {
+    setHistory((prevHistory) => {
+      const filtered = prevHistory.filter((item) => item.id !== data.id);
+      const newItem: HistoryItem = {
+        ...data,
+        timestamp: Date.now(),
+        origin_url: data.origin_url || url
+      };
+      const updated = [newItem, ...filtered].slice(0, 24); // Limit to 24 items
+      localStorage.setItem('download_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleSelectHistoryItem = (item: HistoryItem) => {
+    if (item.origin_url) {
+      setUrl(item.origin_url);
+    }
+    setVideoData(item);
+    setError(null);
+    setActiveTab('download');
+    setTimeout(() => {
+      const resultElement = document.getElementById('results-section');
+      if (resultElement) {
+        resultElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
+  const deleteHistoryItem = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setHistory((prevHistory) => {
+      const updated = prevHistory.filter((item) => item.id !== id);
+      localStorage.setItem('download_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearHistory = () => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử tải xuống không?')) {
+      setHistory([]);
+      localStorage.removeItem('download_history');
+    }
+  };
 
   const triggerDownload = async (proxyUrl: string, filename: string, id: string) => {
     setDownloading(id);
@@ -82,6 +150,7 @@ export default function App() {
 
       if (!response.ok) throw new Error(data.error || 'Không thể lấy thông tin video. Vui lòng kiểm tra lại link.');
       setVideoData(data);
+      addToHistory(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -120,298 +189,479 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-40">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <motion.div
-             initial={{ opacity: 0, y: 10 }}
-             animate={{ opacity: 1, y: 0 }}
-             className="inline-block px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8"
-          >
-            Smarter Video Downloader
-          </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-6xl md:text-8xl font-black tracking-tightest mb-8 leading-[0.9]"
-          >
-            TẢI VIDEO <span className="text-cyan-400 italic">KHÔNG LOGO</span>
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-medium"
-          >
-            Hỗ trợ TikTok, Douyin với chất lượng gốc 4K/HD. Hoàn toàn miễn phí, tốc độ ánh sáng.
-          </motion.p>
+      <main className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-40">
+        {/* Navigation Tabs */}
+        <div className="flex justify-center mb-16">
+          <div className="p-1.5 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-2xl flex gap-2 shadow-xl shadow-black/20">
+            <button
+              onClick={() => setActiveTab('download')}
+              className={`relative px-8 py-3.5 rounded-[1.6rem] text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 cursor-pointer active:scale-95 ${
+                activeTab === 'download'
+                  ? 'bg-white text-slate-950 shadow-lg'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              Tải Video
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`relative px-8 py-3.5 rounded-[1.6rem] text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 cursor-pointer active:scale-95 ${
+                activeTab === 'history'
+                  ? 'bg-white text-slate-950 shadow-lg'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              Lịch sử
+              {history.length > 0 && (
+                <span className={`px-2 py-0.5 text-[10px] font-black rounded-full transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/10'
+                }`}>
+                  {history.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Input area */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="relative max-w-3xl mx-auto"
-        >
-          <div className="relative group p-1.5 rounded-[2.5rem] bg-white/5 backdrop-blur-2xl border border-white/10 focus-within:border-cyan-500/50 transition-all duration-500 shadow-2xl shadow-black/40">
-            <div className="rounded-[2.2rem] flex flex-col md:flex-row items-center gap-2 p-2">
-              <div className="flex-1 relative flex items-center w-full">
-                <input 
-                  type="text" 
-                  placeholder="Dán link TikTok hoặc Douyin vào đây..." 
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 w-full bg-transparent border-none outline-none px-6 py-4 pr-12 text-lg placeholder:text-slate-500 font-medium focus:ring-0 truncate"
-                />
-                
-              </div>
-              <button 
-                onClick={videoData ? handleClear : handleDownload}
-                disabled={loading}
-                className={`w-full md:w-auto font-black uppercase tracking-wider py-4 px-10 rounded-[1.8rem] transition-all flex items-center justify-center gap-2 group/btn shadow-lg active:scale-95 ${
-                  videoData 
-                    ? "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 focus:ring-red-500/50" 
-                    : "bg-white hover:bg-cyan-50 disabled:bg-slate-700 text-slate-950"
-                }`}
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
-                ) : videoData ? (
-                  <>
-                    Xóa
-                    <Trash2 className="w-5 h-5 text-red-500 group-hover/btn:scale-110 transition-transform" />
-                  </>
-                ) : (
-                  <>
-                    Tải ngay
-                    <Zap className="w-5 h-5 fill-slate-950" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Error message */}
-        <AnimatePresence>
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-6 max-w-3xl mx-auto flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-500 p-5 rounded-2xl backdrop-blur-md"
-            >
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-sm font-bold">{error}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Quality Options grid (Static visualization for Frosted Glass theme) */}
-        {!videoData && !loading && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mx-auto mt-20">
-            <div className="p-6 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl group cursor-pointer hover:bg-white/10 transition-all">
-              <div className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-2">Premium</div>
-              <div className="text-xl font-bold italic">Ultra HD 4K</div>
-              <div className="text-sm text-slate-400 mt-1 italic">Không Watermark</div>
-            </div>
-            <div className="p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl border-cyan-500/50 relative">
-              <div className="absolute top-4 right-4 w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">Standard</div>
-              <div className="text-xl font-bold italic">Full HD 1080p</div>
-              <div className="text-sm text-slate-400 mt-1 italic">Khuyên dùng</div>
-            </div>
-            <div className="p-6 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl group cursor-pointer hover:bg-white/10 transition-all">
-              <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">Audio Only</div>
-              <div className="text-xl font-bold italic">MP3 320kbps</div>
-              <div className="text-sm text-slate-400 mt-1 italic">Chất lượng cao</div>
-            </div>
-          </div>
-        )}
-
-        {/* Results area */}
         <AnimatePresence mode="wait">
-          {videoData && (
-            <motion.div 
-              key={videoData.id}
-              initial={{ opacity: 0, y: 100, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-              className="mt-20 overflow-hidden rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-3xl shadow-4xl max-w-4xl mx-auto"
+          {activeTab === 'download' ? (
+            <motion.div
+              key="downloader-tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25 }}
             >
-              <div className="flex flex-col lg:flex-row">
-                {/* Preview Container */}
-                <div className="w-full lg:w-2/5 aspect-[4/5] lg:aspect-auto lg:h-[600px] relative overflow-hidden group/preview">
-                  <img 
-                    src={videoData.cover} 
-                    alt="Video preview" 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover/preview:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300">
-                     <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30">
-                        <Video className="w-8 h-8" />
-                     </div>
-                  </div>
-                  <div className="absolute bottom-10 left-10 right-10">
-                    <div className="flex items-center gap-4">
-                      <img 
-                        src={videoData.author.avatar} 
-                        alt="Author" 
-                        className="w-12 h-12 rounded-2xl border-2 border-white/20 shadow-xl"
-                        referrerPolicy="no-referrer"
+              {/* Hero Section */}
+              <div className="text-center mb-16">
+                <motion.div
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   className="inline-block px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8"
+                >
+                  Smarter Video Downloader
+                </motion.div>
+                <motion.h1 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-6xl md:text-8xl font-black tracking-tightest mb-8 leading-[0.9]"
+                >
+                  TẢI VIDEO <span className="text-cyan-400 italic">KHÔNG LOGO</span>
+                </motion.h1>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-medium"
+                >
+                  Hỗ trợ TikTok, Douyin với chất lượng gốc 4K/HD. Hoàn toàn miễn phí, tốc độ ánh sáng.
+                </motion.p>
+              </div>
+
+              {/* Input area */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="relative max-w-3xl mx-auto"
+              >
+                <div className="relative group p-1.5 rounded-[2.5rem] bg-white/5 backdrop-blur-2xl border border-white/10 focus-within:border-cyan-500/50 transition-all duration-500 shadow-2xl shadow-black/40">
+                  <div className="rounded-[2.2rem] flex flex-col md:flex-row items-center gap-2 p-2">
+                    <div className="flex-1 relative flex items-center w-full">
+                      <input 
+                        type="text" 
+                        placeholder="Dán link TikTok hoặc Douyin vào đây..." 
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        className="flex-1 w-full bg-transparent border-none outline-none px-6 py-4 pr-12 text-lg placeholder:text-slate-500 font-medium focus:ring-0 truncate"
                       />
-                      <div>
-                        <p className="font-black text-lg leading-tight">{videoData.author.nickname}</p>
-                        <p className="text-sm text-slate-400 font-bold tracking-tight">@{videoData.author.unique_id}</p>
-                      </div>
                     </div>
+                    <button 
+                      onClick={videoData ? handleClear : handleDownload}
+                      disabled={loading}
+                      className={`w-full md:w-auto font-black uppercase tracking-wider py-4 px-10 rounded-[1.8rem] transition-all flex items-center justify-center gap-2 group/btn shadow-lg active:scale-95 ${
+                        videoData 
+                          ? "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 focus:ring-red-500/50" 
+                          : "bg-white hover:bg-cyan-50 disabled:bg-slate-700 text-slate-950"
+                      }`}
+                    >
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                      ) : videoData ? (
+                        <>
+                          Xóa
+                          <Trash2 className="w-5 h-5 text-red-500 group-hover/btn:scale-110 transition-transform" />
+                        </>
+                      ) : (
+                        <>
+                          Tải ngay
+                          <Zap className="w-5 h-5 fill-slate-950" />
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
+              </motion.div>
 
-                {/* Info & Download Panel */}
-                <div className="flex-1 p-10 lg:p-14 flex flex-col justify-between">
-                  <div className="mb-12">
-                    <div className="flex gap-3 mb-8">
-                      <span className="bg-cyan-500/20 text-cyan-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-cyan-500/20">
-                        {videoData.images ? `${videoData.images.length} Ảnh` : 'HD Quality'}
-                      </span>
-                      <span className="bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                        No Watermark
-                      </span>
-                    </div>
-                    <h2 className="text-3xl lg:text-4xl font-black mb-6 leading-tight tracking-tighter italic">
-                      {videoData.title || (videoData.images ? "Bộ sưu tập ảnh" : "Video này không được tác giả đặt tiêu đề.")}
-                    </h2>
+              {/* Error message */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mt-6 max-w-3xl mx-auto flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-500 p-5 rounded-2xl backdrop-blur-md"
+                  >
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-bold">{error}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Quality Options grid */}
+              {!videoData && !loading && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mx-auto mt-20">
+                  <div className="p-6 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl group cursor-pointer hover:bg-white/10 transition-all">
+                    <div className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-2">Premium</div>
+                    <div className="text-xl font-bold italic">Ultra HD 4K</div>
+                    <div className="text-sm text-slate-400 mt-1 italic">Không Watermark</div>
                   </div>
+                  <div className="p-6 bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl border-cyan-500/50 relative">
+                    <div className="absolute top-4 right-4 w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                    <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">Standard</div>
+                    <div className="text-xl font-bold italic">Full HD 1080p</div>
+                    <div className="text-sm text-slate-400 mt-1 italic">Khuyên dùng</div>
+                  </div>
+                  <div className="p-6 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl group cursor-pointer hover:bg-white/10 transition-all">
+                    <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">Audio Only</div>
+                    <div className="text-xl font-bold italic">MP3 320kbps</div>
+                    <div className="text-sm text-slate-400 mt-1 italic">Chất lượng cao</div>
+                  </div>
+                </div>
+              )}
 
-                  <div className="grid gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    {videoData.images && videoData.images.length > 0 ? (
-                      <div className="flex flex-col gap-6">
-                        <div className="flex items-center justify-between">
-                           <span className="text-xs font-black uppercase text-cyan-400">Danh sách ảnh ({videoData.images.length})</span>
+              {/* Results area */}
+              <AnimatePresence mode="wait">
+                {videoData && (
+                  <motion.div 
+                    id="results-section"
+                    key={videoData.id}
+                    initial={{ opacity: 0, y: 100, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                    className="mt-20 overflow-hidden rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-3xl shadow-4xl max-w-4xl mx-auto"
+                  >
+                    <div className="flex flex-col lg:flex-row">
+                      {/* Preview Container */}
+                      <div className="w-full lg:w-2/5 aspect-[4/5] lg:aspect-auto lg:h-[600px] relative overflow-hidden group/preview">
+                        <img 
+                          src={videoData.cover} 
+                          alt="Video preview" 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover/preview:scale-110"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300">
+                           <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30">
+                              <Video className="w-8 h-8" />
+                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          {videoData.images.map((img, idx) => {
-                            const downloadId = `img-${idx}`;
-                            return (
-                              <div key={idx} className="relative group/img rounded-2xl overflow-hidden aspect-[3/4] border border-white/10 bg-white/5">
-                                <img 
-                                  src={img} 
-                                  alt={`Slide ${idx + 1}`} 
-                                  className="w-full h-full object-cover transition-transform group-hover/img:scale-110"
-                                  referrerPolicy="no-referrer"
-                                />
-                                <div className={`absolute inset-0 bg-black/60 transition-opacity flex items-center justify-center ${downloading === downloadId ? 'opacity-100' : 'opacity-0 group-hover/img:opacity-100'}`}>
-                                  <button 
-                                    onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(img)}&filename=image_${videoData.id}_${idx + 1}.jpg`, `image_${videoData.id}_${idx + 1}.jpg`, downloadId)}
-                                    disabled={downloading !== null}
-                                    className="bg-white text-black p-3 rounded-full hover:bg-cyan-400 transition-colors shadow-lg disabled:opacity-50"
-                                  >
-                                    {downloading === downloadId ? (
-                                      <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                                    ) : (
-                                      <Download className="w-5 h-5" />
-                                    )}
-                                  </button>
-                                </div>
-                                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black italic border border-white/10">
-                                  #{idx + 1}
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="absolute bottom-10 left-10 right-10">
+                          <div className="flex items-center gap-4">
+                            <img 
+                              src={videoData.author.avatar} 
+                              alt="Author" 
+                              className="w-12 h-12 rounded-2xl border-2 border-white/20 shadow-xl"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div>
+                              <p className="font-black text-lg leading-tight">{videoData.author.nickname}</p>
+                              <p className="text-sm text-slate-400 font-bold tracking-tight">@{videoData.author.unique_id}</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <button 
-                          onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.hd_play_url || videoData.play_url)}&filename=video_${videoData.id}.mp4`, `video_${videoData.id}.mp4`, 'hd-video')}
-                          disabled={downloading !== null}
-                          className="group/dl h-20 bg-white text-slate-950 font-black uppercase tracking-widest rounded-3xl flex items-center justify-center gap-3 hover:bg-cyan-50 transition-all active:scale-98 shadow-xl disabled:opacity-50"
-                        >
-                          {downloading === 'hd-video' ? (
-                            <div className="w-6 h-6 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+
+                      {/* Info & Download Panel */}
+                      <div className="flex-1 p-10 lg:p-14 flex flex-col justify-between">
+                        <div className="mb-12">
+                          <div className="flex gap-3 mb-8">
+                            <span className="bg-cyan-500/20 text-cyan-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-cyan-500/20">
+                              {videoData.images ? `${videoData.images.length} Ảnh` : 'HD Quality'}
+                            </span>
+                            <span className="bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                              No Watermark
+                            </span>
+                          </div>
+                          <h2 className="text-3xl lg:text-4xl font-black mb-6 leading-tight tracking-tighter italic">
+                            {videoData.title || (videoData.images ? "Bộ sưu tập ảnh" : "Video này không được tác giả đặt tiêu đề.")}
+                          </h2>
+                        </div>
+
+                        <div className="grid gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                          {videoData.images && videoData.images.length > 0 ? (
+                            <div className="flex flex-col gap-6">
+                              <div className="flex items-center justify-between">
+                                 <span className="text-xs font-black uppercase text-cyan-400">Danh sách ảnh ({videoData.images.length})</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                {videoData.images.map((img, idx) => {
+                                  const downloadId = `img-${idx}`;
+                                  return (
+                                    <div key={idx} className="relative group/img rounded-2xl overflow-hidden aspect-[3/4] border border-white/10 bg-white/5">
+                                      <img 
+                                        src={img} 
+                                        alt={`Slide ${idx + 1}`} 
+                                        className="w-full h-full object-cover transition-transform group-hover/img:scale-110"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <div className={`absolute inset-0 bg-black/60 transition-opacity flex items-center justify-center ${downloading === downloadId ? 'opacity-100' : 'opacity-0 group-hover/img:opacity-100'}`}>
+                                        <button 
+                                          onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(img)}&filename=image_${videoData.id}_${idx + 1}.jpg`, `image_${videoData.id}_${idx + 1}.jpg`, downloadId)}
+                                          disabled={downloading !== null}
+                                          className="bg-white text-black p-3 rounded-full hover:bg-cyan-400 transition-colors shadow-lg disabled:opacity-50"
+                                        >
+                                          {downloading === downloadId ? (
+                                            <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                          ) : (
+                                            <Download className="w-5 h-5" />
+                                          )}
+                                        </button>
+                                      </div>
+                                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black italic border border-white/10">
+                                        #{idx + 1}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           ) : (
                             <>
-                              <Download className="w-6 h-6 group-hover/dl:animate-bounce" />
-                              Tải ngay (HD)
+                              <button 
+                                onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.hd_play_url || videoData.play_url)}&filename=video_${videoData.id}.mp4`, `video_${videoData.id}.mp4`, 'hd-video')}
+                                disabled={downloading !== null}
+                                className="group/dl h-20 bg-white text-slate-950 font-black uppercase tracking-widest rounded-3xl flex items-center justify-center gap-3 hover:bg-cyan-50 transition-all active:scale-98 shadow-xl disabled:opacity-50"
+                              >
+                                {downloading === 'hd-video' ? (
+                                  <div className="w-6 h-6 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <Download className="w-6 h-6 group-hover/dl:animate-bounce" />
+                                    Tải ngay (HD)
+                                  </>
+                                )}
+                              </button>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <button 
+                                  onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.play_url)}&filename=video_sd_${videoData.id}.mp4`, `video_sd_${videoData.id}.mp4`, 'sd-video')}
+                                  disabled={downloading !== null}
+                                  className="h-16 bg-white/5 border border-white/10 hover:bg-white/10 font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                >
+                                   {downloading === 'sd-video' ? (
+                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                   ) : (
+                                     <>
+                                       <Video className="w-4 h-4 opacity-40" />
+                                       Video SD
+                                     </>
+                                   )}
+                                </button>
+                                <button 
+                                  onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.music_url)}&filename=music_${videoData.id}.mp3`, `music_${videoData.id}.mp3`, 'audio')}
+                                  disabled={downloading !== null}
+                                  className="h-16 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                >
+                                  {downloading === 'audio' ? (
+                                    <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Music className="w-4 h-4" />
+                                      Audio Only
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </>
                           )}
-                        </button>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <button 
-                            onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.play_url)}&filename=video_sd_${videoData.id}.mp4`, `video_sd_${videoData.id}.mp4`, 'sd-video')}
-                            disabled={downloading !== null}
-                            className="h-16 bg-white/5 border border-white/10 hover:bg-white/10 font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                          >
-                             {downloading === 'sd-video' ? (
-                               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                             ) : (
-                               <>
-                                 <Video className="w-4 h-4 opacity-40" />
-                                 Video SD
-                               </>
-                             )}
-                          </button>
-                          <button 
-                            onClick={() => triggerDownload(`/api/proxy?url=${encodeURIComponent(videoData.music_url)}&filename=music_${videoData.id}.mp3`, `music_${videoData.id}.mp3`, 'audio')}
-                            disabled={downloading !== null}
-                            className="h-16 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                          >
-                            {downloading === 'audio' ? (
-                              <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                            ) : (
-                              <>
-                                <Music className="w-4 h-4" />
-                                Audio Only
-                              </>
-                            )}
-                          </button>
                         </div>
-                      </>
+
+                        <div className="mt-10 flex flex-col items-center gap-4">
+                          <button 
+                            onClick={handleClear}
+                            className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/60 hover:text-cyan-400 transition-colors py-2 px-4 rounded-full border border-cyan-400/10 hover:border-cyan-400/30"
+                          >
+                            Tải video khác
+                          </button>
+                          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] text-center">
+                            An toàn • Nhanh chóng • Miễn phí
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Feature Highlights */}
+              <div className="mt-48 grid grid-cols-1 md:grid-cols-3 gap-12">
+                <FeatureItem 
+                  icon={<Zap className="w-8 h-8 text-cyan-400" />}
+                  title="LIGHTNING FAST"
+                  desc="Quy trình xử lý hiện đại, lấy link trực tiếp trong nháy mắt."
+                />
+                <FeatureItem 
+                  icon={<Shield className="w-8 h-8 text-indigo-400" />}
+                  title="SECURE BY DEFAULT"
+                  desc="Không yêu cầu đăng nhập, không theo dõi, bảo mật tuyệt đối."
+                />
+                <FeatureItem 
+                  icon={<CheckCircle2 className="w-8 h-8 text-emerald-400" />}
+                  title="PURE QUALITY"
+                  desc="Giữ nguyên độ phân giải gốc từ TikTok, không nén, không mờ."
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="history-tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25 }}
+            >
+              {/* Download History Section */}
+              <div className="max-w-4xl mx-auto mt-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <h2 className="text-xl font-black uppercase tracking-wider italic">Lịch sử tải xuống</h2>
+                    {history.length > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-black bg-cyan-500/20 text-cyan-400 rounded-full border border-cyan-500/20">
+                        {history.length}
+                      </span>
                     )}
                   </div>
-
-                  <div className="mt-10 flex flex-col items-center gap-4">
-                    <button 
-                      onClick={handleClear}
-                      className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/60 hover:text-cyan-400 transition-colors py-2 px-4 rounded-full border border-cyan-400/10 hover:border-cyan-400/30"
+                  {history.length > 0 && (
+                    <button
+                      onClick={clearHistory}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 transition-all active:scale-95 cursor-pointer"
                     >
-                      Tải video khác
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Xóa tất cả
                     </button>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] text-center">
-                      An toàn • Nhanh chóng • Miễn phí
-                    </p>
-                  </div>
+                  )}
                 </div>
+
+                <AnimatePresence mode="popLayout">
+                  {history.length > 0 ? (
+                    <motion.div 
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
+                    >
+                      {history.map((item) => (
+                        <motion.div
+                          layout
+                          key={item.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+                          whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                          onClick={() => handleSelectHistoryItem(item)}
+                          className="group relative cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 hover:border-cyan-500/30 transition-all duration-300 p-4 flex flex-col h-[280px] justify-between shadow-lg"
+                        >
+                          {/* Thumbnail Cover with Hover Play/View effect */}
+                          <div className="relative w-full h-[150px] rounded-2xl overflow-hidden mb-3 bg-slate-900 flex-shrink-0">
+                            <img
+                              src={item.cover}
+                              alt={item.title}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                            
+                            {/* Play/Eye overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/45">
+                              <div className="w-10 h-10 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
+                                <Eye className="w-5 h-5 font-black" />
+                              </div>
+                            </div>
+
+                            {/* Time ago or media badge */}
+                            <div className="absolute top-3 left-3 flex gap-1.5">
+                              <span className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider border border-white/10 text-cyan-400">
+                                {item.images ? `${item.images.length} Ảnh` : "Video"}
+                              </span>
+                            </div>
+
+                            {/* Quick delete button */}
+                            <button
+                              onClick={(e) => deleteHistoryItem(e, item.id)}
+                              className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-black/60 hover:bg-red-500 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-red-500/30 text-white/60 hover:text-white transition-all scale-90 active:scale-75 shadow-md z-10"
+                              title="Xóa khỏi lịch sử"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Metadata */}
+                          <div className="flex-1 flex flex-col justify-between">
+                            <h3 className="font-extrabold text-sm line-clamp-2 text-slate-100 group-hover:text-cyan-400 transition-colors duration-200 mb-2 leading-snug">
+                              {item.title || (item.images ? "Bộ sưu tập ảnh" : "Không có tiêu đề")}
+                            </h3>
+                            
+                            <div className="flex items-center gap-2.5 mt-auto pt-2 border-t border-white/5">
+                              <img
+                                src={item.author.avatar}
+                                alt={item.author.nickname}
+                                className="w-7 h-7 rounded-lg object-cover border border-white/10"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-extrabold text-slate-300 truncate leading-tight">
+                                  {item.author.nickname}
+                                </p>
+                                <p className="text-[9px] font-bold text-slate-500 truncate">
+                                  @{item.author.unique_id}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col items-center justify-center p-12 rounded-3xl border border-white/5 bg-white/[0.01] text-center"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 text-slate-500">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-400 mb-1">Chưa có lịch sử tải xuống</h3>
+                      <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                        Video bạn tải thành công sẽ hiển thị ở đây để xem lại hoặc tải lại nhanh chóng.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Feature Highlights */}
-        <div className="mt-48 grid grid-cols-1 md:grid-cols-3 gap-12">
-          <FeatureItem 
-            icon={<Zap className="w-8 h-8 text-cyan-400" />}
-            title="LIGHTNING FAST"
-            desc="Quy trình xử lý hiện đại, lấy link trực tiếp trong nháy mắt."
-          />
-          <FeatureItem 
-            icon={<Shield className="w-8 h-8 text-indigo-400" />}
-            title="SECURE BY DEFAULT"
-            desc="Không yêu cầu đăng nhập, không theo dõi, bảo mật tuyệt đối."
-          />
-          <FeatureItem 
-            icon={<CheckCircle2 className="w-8 h-8 text-emerald-400" />}
-            title="PURE QUALITY"
-            desc="Giữ nguyên độ phân giải gốc từ TikTok, không nén, không mờ."
-          />
-        </div>
       </main>
 
       {/* Footer */}
